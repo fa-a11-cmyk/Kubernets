@@ -1,0 +1,59 @@
+nameOverride: ""
+
+api:
+  image:
+    repository: ghcr.io/your-user/microservices-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  service:
+    port: 8000
+
+frontend:
+  image:
+    repository: ghcr.io/your-user/microservices-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+  service:
+    port: 8080
+
+postgresql:
+  image: postgres:16-alpine
+  database: items
+  username: app
+  # Pass a local password with --set-string or use an existing Secret.
+  password: ""
+  existingSecret: ""
+  storage: 2Gi
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+redis:
+  image: redis:7-alpine
+  resources:
+    requests: {cpu: 50m, memory: 32Mi}
+    limits: {cpu: 250m, memory: 128Mi}
+
+ingress:
+  enabled: true
+  className: nginx
+  host: microservices.local
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+    releaseLabel: monitoring
+

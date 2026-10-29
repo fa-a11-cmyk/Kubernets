@@ -1,0 +1,27 @@
+# Supply immutable image tags and the database password at deploy time.
+api:
+  image:
+    repository: ghcr.io/your-org/microservices-api
+    tag: SET_BY_CI
+    pullPolicy: IfNotPresent
+  replicas: 3
+  hpa:
+    minReplicas: 3
+    maxReplicas: 10
+
+frontend:
+  image:
+    repository: ghcr.io/your-org/microservices-frontend
+    tag: SET_BY_CI
+    pullPolicy: IfNotPresent
+  replicas: 2
+
+postgresql:
+  # Create this Secret through a secret manager before installing the chart.
+  password: ""
+  existingSecret: app-postgresql
+  storage: 20Gi
+
+ingress:
+  host: app.example.com
+

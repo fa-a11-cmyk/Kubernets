@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101923" />
+    <title>Items · Microservices Kubernetes</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #101923; color: #edf4f8; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 85% 0, #294a51 0, #101923 45%); }
+      main { max-width: 900px; margin: auto; padding: 64px 24px; }
+      .eyebrow { color: #77d8bd; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; font-weight: 700; }
+      h1 { font-size: clamp(36px, 7vw, 68px); line-height: 1; letter-spacing: -.05em; margin: 16px 0; }
+      .intro { color: #a9b9c3; font-size: 17px; max-width: 600px; line-height: 1.6; }
+      .card { margin-top: 36px; background: #182531; border: 1px solid #31434f; border-radius: 18px; padding: 24px; box-shadow: 0 24px 80px #05090d55; }
+      form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; }
+      input, button { border: 1px solid #3d5360; border-radius: 10px; padding: 12px 14px; font: inherit; }
+      input { background: #101923; color: inherit; min-width: 0; }
+      button { background: #77d8bd; color: #10211e; border-color: #77d8bd; font-weight: 700; cursor: pointer; }
+      button:hover { background: #96ebd2; }
+      #message { min-height: 24px; color: #a9b9c3; font-size: 14px; }
+      ul { list-style: none; padding: 0; margin: 10px 0 0; }
+      li { display: flex; justify-content: space-between; gap: 20px; border-top: 1px solid #31434f; padding: 16px 2px; }
+      li strong { display: block; margin-bottom: 4px; }
+      li span { color: #9eb0bb; font-size: 14px; }
+      .tag { color: #77d8bd; font-size: 12px; }
+      @media (max-width: 680px) { main { padding-top: 40px; } form { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">FastAPI · PostgreSQL · Redis</div>
+      <h1>Microservices<br />sur Kubernetes</h1>
+      <p class="intro">Une application de démonstration avec API conteneurisée, base persistante, cache Redis et métriques Prometheus.</p>
+      <section class="card" aria-label="Gestion des items">
+        <form id="item-form">
+          <input id="name" name="name" maxlength="160" placeholder="Nom de l’item" required />
+          <input id="description" name="description" maxlength="2000" placeholder="Description (facultative)" />
+          <button type="submit">Ajouter</button>
+        </form>
+        <p id="message" role="status">Chargement…</p>
+        <ul id="items"></ul>
+      </section>
+    </main>
+    <script>
+      const form = document.querySelector('#item-form');
+      const list = document.querySelector('#items');
+      const message = document.querySelector('#message');
+      async function refresh() {
+        try {
+          const response = await fetch('/api/items');
+          if (!response.ok) throw new Error('API indisponible');
+          const items = await response.json();
+          list.replaceChildren(...items.map(item => {
+            const row = document.createElement('li');
+            const copy = document.createElement('div');
+            const name = document.createElement('strong');
+            const description = document.createElement('span');
+            const id = document.createElement('span');
+            name.textContent = item.name;
+            description.textContent = item.description || 'Sans description';
+            id.className = 'tag';
+            id.textContent = `#${item.id}`;
+            copy.append(name, description);
+            row.append(copy, id);
+            return row;
+          }));
+          message.textContent = `${items.length} item(s) · API connectée`;
+        } catch (error) { message.textContent = `${error.message}. Réessayez dans quelques secondes.`; }
+      }
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const data = new FormData(form);
+        const response = await fetch('/api/items', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: data.get('name'), description: data.get('description') || null })
+        });
+        if (!response.ok) { message.textContent = 'Impossible d’ajouter cet item.'; return; }
+        form.reset();
+        await refresh();
+      });
+      refresh();
+    </script>
+  </body>
+</html>
+
