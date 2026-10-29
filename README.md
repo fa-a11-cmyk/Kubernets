@@ -106,15 +106,13 @@ curl.exe -X POST http://localhost:8080/api/items `
 
 ## CI/CD GitHub Actions
 
-Le workflow `.github/workflows/ci-cd.yml` lance les tests API sur les pull requests et les pushs, construit les deux images avec BuildKit, les publie sur Docker Hub avec le SHA Git comme tag et déclenche le déploiement Helm après un push sur `main`.
+Le workflow `.github/workflows/ci-cd.yml` lance les tests API sur les pull requests et les pushs, construit les deux images avec BuildKit, les publie sur GitHub Container Registry (`ghcr.io`) avec le SHA Git comme tag et déclenche le déploiement Helm après un push sur `main`. La publication utilise le `GITHUB_TOKEN` intégré à Actions ; aucun secret Docker Hub n'est nécessaire.
 
-Ajoutez ces secrets au dépôt GitHub :
+Ajoutez ce secret au dépôt GitHub pour le déploiement local :
 
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN` (jeton Docker Hub dédié)
 - `POSTGRES_PASSWORD` (valeur forte réservée à cet environnement)
 
-Le job de déploiement cible volontairement un runner Linux auto-hébergé avec les labels `self-hosted`, `linux` et `kubernetes`. Il doit avoir Docker, Helm, `kubectl`, l’accès réseau au cluster Minikube/kind et un `KUBECONFIG` limité au namespace `microservices`. Un runner GitHub hébergé n’a pas automatiquement accès au cluster local ; GitHub documente les options d’accès aux réseaux privés si vous souhaitez utiliser un tunnel à la place d’un runner local ([runners auto-hébergés](https://docs.github.com/en/actions/concepts/runners/self-hosted-runners), [réseau privé pour runners hébergés](https://docs.github.com/en/actions/how-tos/manage-runners/github-hosted-runners/connect-to-a-private-network)).
+Après la première publication, rendez publics les deux packages `microservices-api` et `microservices-frontend` dans **GitHub > Packages > Package settings > Change visibility** pour que le cluster puisse télécharger les images sans identifiants. Le déploiement local est désactivé par défaut : activez la variable de dépôt `DEPLOY_LOCAL` avec la valeur `true` uniquement après avoir rendu les packages publics, configuré le secret `POSTGRES_PASSWORD` et installé un runner Linux auto-hébergé avec les labels `self-hosted`, `linux` et `kubernetes`. Ce runner doit avoir Docker, Helm, `kubectl`, l’accès réseau au cluster Minikube/kind et un `KUBECONFIG` limité au namespace `microservices`. Un runner GitHub hébergé n’a pas automatiquement accès au cluster local ; GitHub documente les options d’accès aux réseaux privés si vous souhaitez utiliser un tunnel à la place d’un runner local ([runners auto-hébergés](https://docs.github.com/en/actions/concepts/runners/self-hosted-runners), [réseau privé pour runners hébergés](https://docs.github.com/en/actions/how-tos/manage-runners/github-hosted-runners/connect-to-a-private-network)).
 
 Pour initialiser le namespace et le rôle RBAC de déploiement depuis un contexte administrateur :
 
@@ -123,7 +121,7 @@ kubectl create namespace microservices
 kubectl apply -f deploy/rbac/deployer.yaml
 ```
 
-Le rôle ne donne des droits que dans `microservices` et inclut les secrets nécessaires au stockage de l’état Helm. Configurez l’identité du runner sur ce rôle ; ne placez pas de kubeconfig administrateur dans les secrets GitHub. Les images Docker Hub doivent être publiques, sinon ajoutez un `imagePullSecret` dans le chart.
+Le rôle ne donne des droits que dans `microservices` et inclut les secrets nécessaires au stockage de l’état Helm. Configurez l’identité du runner sur ce rôle ; ne placez pas de kubeconfig administrateur dans les secrets GitHub.
 
 ## Monitoring et logs
 
@@ -179,4 +177,3 @@ Le chart est dans `helm/microservices`. La commande suivante permet d’inspecte
 helm template demo ./helm/microservices --namespace microservices `
   --set-string postgresql.password='local-template-only'
 ```
-

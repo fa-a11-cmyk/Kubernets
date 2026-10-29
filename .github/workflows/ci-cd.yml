@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   test:
@@ -37,23 +38,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ format('{0}/microservices-{1}:{2}', secrets.DOCKERHUB_USERNAME || 'local', matrix.service, github.sha) }}
+          tags: ${{ format('ghcr.io/{0}/microservices-{1}:{2}', github.repository_owner, matrix.service, github.sha) }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   deploy-local:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_LOCAL == 'true'
     needs: [publish]
     runs-on: [self-hosted, linux, kubernetes]
     environment: local-cluster
@@ -62,10 +64,9 @@ jobs:
       - name: Deploy to local Kubernetes with Helm
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          if [ -z "$POSTGRES_PASSWORD" ] || [ -z "$DOCKERHUB_USERNAME" ]; then
-            echo "Configure POSTGRES_PASSWORD and DOCKERHUB_USERNAME repository secrets."
+          if [ -z "$POSTGRES_PASSWORD" ]; then
+            echo "Configure the POSTGRES_PASSWORD repository secret."
             exit 1
           fi
           kubectl create secret generic demo-postgresql \
@@ -75,11 +76,10 @@ jobs:
           helm upgrade --install demo ./helm/microservices \
             --namespace microservices \
             --values ./helm/microservices/values.yaml \
-            --set api.image.repository="$DOCKERHUB_USERNAME/microservices-api" \
+            --set api.image.repository="ghcr.io/${GITHUB_REPOSITORY_OWNER}/microservices-api" \
             --set api.image.tag="${GITHUB_SHA}" \
-            --set frontend.image.repository="$DOCKERHUB_USERNAME/microservices-frontend" \
+            --set frontend.image.repository="ghcr.io/${GITHUB_REPOSITORY_OWNER}/microservices-frontend" \
             --set frontend.image.tag="${GITHUB_SHA}" \
             --set postgresql.existingSecret=demo-postgresql \
             --set monitoring.serviceMonitor.enabled=true \
             --wait --timeout 5m
-
